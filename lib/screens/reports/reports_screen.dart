@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/utils/formatters.dart';
 import '../../models/expense.dart';
 import '../../models/vehicle.dart';
 import '../../repositories/expense_repository.dart';
@@ -361,17 +362,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  String _date(DateTime value) =>
-      '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
+  String _date(DateTime value) => Formatters.date(value);
 
-  String _money(double value) {
-    final rounded = value.round().toString();
-    final grouped = rounded.replaceAllMapped(
-      RegExp(r'\B(?=(\d{3})+(?!\d))'),
-      (match) => '.',
-    );
-    return '₺$grouped';
-  }
+  String _money(double value) => Formatters.currencyRounded(value);
 
   String _label(ExpenseType type) => switch (type) {
     ExpenseType.fuel => 'Yakıt',

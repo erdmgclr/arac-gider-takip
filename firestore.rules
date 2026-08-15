@@ -1,0 +1,65 @@
+rules_version = '2';
+
+// NOT: Bu dosya kod tabanındaki gerçek koleksiyon/alan kullanımına göre
+// (lib/repositories/, lib/services/backup_service.dart,
+// lib/screens/settings/settings_screen.dart) hazırlanmıştır.
+//
+// ÖNEMLİ: Bu kuralları Firebase Console'daki (veya `firebase deploy
+// --only firestore:rules` ile) mevcut production kurallarıyla
+// karşılaştırıp uyumlu olduğunu doğrulamadan deploy etmeyin. Bu dosya,
+// önceden repo dışında elle yönetilen kuralların yerine önerilen bir
+// başlangıç noktasıdır.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // users/{userId} — kullanıcı yalnızca kendi profilini okuyup yazabilir.
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // vehicles/{vehicleId} — doküman içindeki userId alanına göre yetkilendirme.
+    // create: gövdedeki userId, isteği yapan kullanıcıyla eşleşmeli.
+    // read/update/delete: var olan dokümanın userId'si isteği yapanla eşleşmeli.
+    match /vehicles/{vehicleId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // expenses/{expenseId}
+    match /expenses/{expenseId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // reminders/{reminderId}
+    match /reminders/{reminderId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // vehicle_plate_keys/{userId}_{normalizedPlate}
+    // Doküman ID'si "{userId}_{plaka}" biçiminde olduğundan hem ID öneki
+    // hem de gövdedeki userId alanı kontrol edilir.
+    match /vehicle_plate_keys/{keyId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && keyId.matches(request.auth.uid + '_.*');
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if false; // Bu koleksiyon yalnızca create/delete edilir.
+    }
+
+    // Tanımlanmamış tüm yollar varsayılan olarak kapalıdır.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

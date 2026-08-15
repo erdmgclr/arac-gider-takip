@@ -99,3 +99,10 @@ Thumbs.db
 # Claude / AI Notes (Opsiyonel)
 # =========================
 CLAUDE.local.md
+
+# =========================
+# Geliştirme yardımcı dosyaları
+# =========================
+build_log.txt
+*.build_log.txt
+bakim_ve_drive_revize_kaynaklari.txt

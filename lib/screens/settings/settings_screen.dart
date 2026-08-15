@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/utils/formatters.dart';
 import '../../services/auth_service.dart';
 import '../../services/backup_service.dart';
 import '../../services/google_drive_service.dart';
@@ -64,7 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             builder: (dialogContext) => AlertDialog(
               title: const Text('Yedek geri yüklensin mi?'),
               content: Text(
-                '${_formatDate(selected.modifiedTime ?? selected.createdTime)} tarihli yedek mevcut verilerle birleştirilecek.',
+                '${Formatters.dateTime(selected.modifiedTime ?? selected.createdTime)} tarihli yedek mevcut verilerle birleştirilecek.',
               ),
               actions: [
                 TextButton(
@@ -148,24 +149,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (user == null) return;
     setState(() => _busy = true);
     try {
-      for (final name in [
-        'expenses',
-        'reminders',
-        'vehicle_plate_keys',
-        'vehicles',
-      ]) {
-        final snapshot = await FirebaseFirestore.instance
-            .collection(name)
-            .where('userId', isEqualTo: user.uid)
-            .get();
-        for (var offset = 0; offset < snapshot.docs.length; offset += 400) {
-          final batch = FirebaseFirestore.instance.batch();
-          for (final document in snapshot.docs.skip(offset).take(400)) {
-            batch.delete(document.reference);
-          }
-          await batch.commit();
-        }
-      }
+      await _deleteAllUserData(user.uid);
       _message('Uygulama verileriniz silindi.');
     } catch (error) {
       _message('Veriler silinemedi: $error');
@@ -174,11 +158,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  String _formatDate(DateTime? value) {
-    if (value == null) return 'Tarihi bilinmeyen';
-    final local = value.toLocal();
-    return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}.${local.year} '
-        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  /// Kullanıcının tüm Firestore verilerini siler. Hem "Verilerimi Sil"
+  /// (yalnızca veri) hem de "Hesabımı Sil" (veri + kimlik) akışları
+  /// tarafından paylaşılır.
+  Future<void> _deleteAllUserData(String uid) async {
+    for (final name in [
+      'expenses',
+      'reminders',
+      'vehicle_plate_keys',
+      'vehicles',
+    ]) {
+      final snapshot = await FirebaseFirestore.instance
+          .collection(name)
+          .where('userId', isEqualTo: uid)
+          .get();
+      for (var offset = 0; offset < snapshot.docs.length; offset += 400) {
+        final batch = FirebaseFirestore.instance.batch();
+        for (final document in snapshot.docs.skip(offset).take(400)) {
+          batch.delete(document.reference);
+        }
+        await batch.commit();
+      }
+    }
+  }
+
+  /// Uygulama içinden hesap silme talebi (mağaza politikaları bunu
+  /// zorunlu kılar). Veri silme işleminden farklı olarak Firebase
+  /// Authentication kaydını da kaldırır; bu nedenle ayrı, açıkça
+  /// etiketlenmiş bir aksiyon olarak tutulur ve "Verilerimi Sil"in
+  /// mevcut davranışı değiştirilmez.
+  Future<void> _deleteAccount() async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Hesabınız kalıcı olarak silinsin mi?'),
+            content: const Text(
+              'Tüm verileriniz ve hesap kaydınız kalıcı olarak silinir. '
+              'Bu işlem geri alınamaz ve tekrar giriş yaptığınızda sıfırdan '
+              'yeni bir hesap oluşturulur.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Vazgeç'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Hesabımı Sil'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+
+    var user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    setState(() => _busy = true);
+    try {
+      await _deleteAllUserData(user.uid);
+      try {
+        await user.delete();
+      } on FirebaseAuthException catch (error) {
+        if (error.code != 'requires-recent-login') rethrow;
+        // Firebase, hesap silme gibi hassas işlemlerden önce yakın
+        // zamanda kimlik doğrulaması ister. Kullanıcıyı tekrar Google
+        // ile doğrulayıp silme işlemini bir kez daha deneriz.
+        await AuthService.instance.signInWithGoogle();
+        user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await user.delete();
+        }
+      }
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (error) {
+      _message('Hesap silinemedi: $error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -238,6 +297,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               onTap: _deleteData,
+            ),
+            ListTile(
+              enabled: !_busy,
+              leading: Icon(
+                Icons.no_accounts_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Hesabımı Kalıcı Olarak Sil',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              subtitle: const Text('Verilerinizle birlikte hesap kaydınızı da kaldırır'),
+              onTap: _deleteAccount,
             ),
             ListTile(
               enabled: !_busy,

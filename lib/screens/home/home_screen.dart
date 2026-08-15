@@ -11,6 +11,7 @@ import '../expenses/expense_history_screen.dart';
 import '../expenses/edit_expense_screen.dart';
 
 import '../../core/theme/theme_controller.dart';
+import '../../core/utils/formatters.dart';
 import '../../models/vehicle.dart' as vehicle_model;
 import '../../models/expense.dart';
 import '../../models/reminder.dart';
@@ -22,44 +23,7 @@ import '../../repositories/vehicle_repository.dart';
 import '../../services/vehicle_image_service.dart';
 import '../vehicles/add_vehicle_screen.dart' show AddVehicleScreen;
 import '../vehicles/edit_vehicle_screen.dart';
-
-class DemoVehicle {
-  final vehicle_model.Vehicle source;
-  final String name;
-  final String plate;
-  final String kilometer;
-  final IconData icon;
-  final List<Color> colors;
-  final String monthlyExpense;
-  final String totalExpense;
-  final String fuelCost;
-  final String runningCost;
-  final String consumption;
-  final String? petrolConsumption;
-  final String? lpgConsumption;
-  final String totalCostPerKm;
-  final String? localImagePath;
-  final String? localStickerPath;
-
-  const DemoVehicle({
-    required this.source,
-    required this.name,
-    required this.plate,
-    required this.kilometer,
-    required this.icon,
-    required this.colors,
-    required this.monthlyExpense,
-    required this.totalExpense,
-    required this.fuelCost,
-    required this.runningCost,
-    required this.consumption,
-    this.petrolConsumption,
-    this.lpgConsumption,
-    required this.totalCostPerKm,
-    this.localImagePath,
-    this.localStickerPath,
-  });
-}
+import 'demo_vehicle.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -186,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
         fuelCost: _money(fuelTotal),
         runningCost: runningCost == null
             ? 'Hesaplanamadı'
-            : '₺${runningCost.round()} / km',
+            : '${Formatters.currencyRounded(runningCost)} / km',
         consumption: consumptionText,
         petrolConsumption: vehicle.fuelType == 'PETROL_LPG'
             ? (petrolConsumption == null
@@ -202,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ? (vehicle.purchasePrice == null
                   ? 'Alış fiyatı gerekli'
                   : 'Hesaplanamadı')
-            : '₺${totalCostPerKm.round()} / km',
+            : '${Formatters.currencyRounded(totalCostPerKm)} / km',
         localImagePath: vehicle.localImagePath,
         localStickerPath: vehicle.localStickerPath,
       );
@@ -271,14 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return usedKm > 0 ? usedKm.toDouble() : null;
   }
 
-  String _money(double value) {
-    final rounded = value.round().toString();
-    final grouped = rounded.replaceAllMapped(
-      RegExp(r'\B(?=(\d{3})+(?!\d))'),
-      (match) => '.',
-    );
-    return '₺$grouped';
-  }
+  String _money(double value) => Formatters.currencyRounded(value);
 
   Future<void> _openAddVehicle() async {
     await Navigator.of(context).push<bool>(
@@ -762,7 +719,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Image.file(
                           File(vehicle.localStickerPath!),
                           width: double.infinity,
-                          height: 158,
+                          height: 120,
                           fit: BoxFit.contain,
                           alignment: Alignment.bottomCenter,
                           filterQuality: FilterQuality.high,
@@ -775,7 +732,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Image.file(
                           File(vehicle.localImagePath!),
                           width: double.infinity,
-                          height: 158,
+                          height: 120,
                           fit: BoxFit.contain,
                           alignment: Alignment.bottomCenter,
                         ),
@@ -784,8 +741,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       Icon(
                         vehicle.icon,
                         size: vehicle.icon == Icons.two_wheeler_rounded
-                            ? 126
-                            : 150,
+                            ? 95
+                            : 115,
                         color: Colors.white,
                       ),
                   ],

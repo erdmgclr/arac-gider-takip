@@ -13,9 +13,12 @@ class ExpenseRepository {
         .collection('expenses')
         .add(expense.toFirestore());
 
-    await _recalculateVehicleCurrentKm(
-      userId: expense.userId,
+    // Yeni bir kayıt eklemek, aracın azami km'sini yalnızca artırabilir,
+    // asla düşüremez. Bu yüzden tüm giderleri yeniden taramak yerine tek
+    // bir transaction ile "daha yüksekse güncelle" yeterlidir.
+    await _bumpCurrentKmIfHigher(
       vehicleId: expense.vehicleId,
+      kilometer: expense.kilometer,
     );
     return document.id;
   }
@@ -28,10 +31,26 @@ class ExpenseRepository {
     final data = expense.toFirestore()..remove('createdAt');
     await _db.collection('expenses').doc(expense.id).update(data);
 
-    await _recalculateVehicleCurrentKm(
-      userId: expense.userId,
-      vehicleId: expense.vehicleId,
-    );
+    // Güncellenen km değeri mevcut azami km'ye eşit ya da ondan büyükse,
+    // bu kayıt (eski değeri ne olursa olsun) yeni azami olur; tek
+    // transaction yeterlidir. Küçükse, bu kaydın önceden azami km'yi
+    // belirleyen kayıt olma ihtimaline karşı güvenli tarafta kalıp tam
+    // yeniden hesaplama yapılır.
+    final vehicleReference = _db.collection('vehicles').doc(expense.vehicleId);
+    final vehicleSnapshot = await vehicleReference.get();
+    final currentKm = (vehicleSnapshot.data()?['currentKm'] as num?)?.toInt();
+    final newKm = expense.kilometer;
+    if (newKm != null && (currentKm == null || newKm >= currentKm)) {
+      await _bumpCurrentKmIfHigher(
+        vehicleId: expense.vehicleId,
+        kilometer: newKm,
+      );
+    } else {
+      await _recalculateVehicleCurrentKm(
+        userId: expense.userId,
+        vehicleId: expense.vehicleId,
+      );
+    }
   }
 
   Future<void> updateFields(
@@ -71,7 +90,22 @@ class ExpenseRepository {
 
     final userId = data?['userId'] as String?;
     final vehicleId = data?['vehicleId'] as String?;
-    if (userId != null && vehicleId != null) {
+    if (userId == null || vehicleId == null) {
+      return;
+    }
+
+    // Silinen kaydın km'si, aracın mevcut azami km'sinden kesin olarak
+    // küçükse, bu kayıt zaten azami değeri belirleyen kayıt olamaz —
+    // dolayısıyla yeniden hesaplamaya gerek yoktur. Eşitse veya km
+    // bilgisi yoksa (belirsizlik durumunda güvenli tarafta kalınır),
+    // tam yeniden hesaplama yapılır.
+    final deletedKm = (data?['km'] as num?)?.toInt();
+    final vehicleReference = _db.collection('vehicles').doc(vehicleId);
+    final vehicleSnapshot = await vehicleReference.get();
+    final currentKm = (vehicleSnapshot.data()?['currentKm'] as num?)?.toInt();
+    final canSkip =
+        deletedKm != null && currentKm != null && deletedKm < currentKm;
+    if (!canSkip) {
       await _recalculateVehicleCurrentKm(userId: userId, vehicleId: vehicleId);
     }
   }
@@ -99,6 +133,29 @@ class ExpenseRepository {
           result.sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
           return result;
         });
+  }
+
+  /// Aracın azami km'sini yalnızca verilen değer daha yüksekse, tek bir
+  /// transaction ile günceller. `VehicleRepository.updateCurrentKmIfHigher`
+  /// ile aynı deseni kullanır; burada ayrıca tutulmasının sebebi bu
+  /// sınıfın kendi Firestore erişimini (`_db`) kullanmasıdır.
+  Future<void> _bumpCurrentKmIfHigher({
+    required String vehicleId,
+    required int? kilometer,
+  }) async {
+    if (kilometer == null) return;
+    final reference = _db.collection('vehicles').doc(vehicleId);
+    await _db.runTransaction((transaction) async {
+      final snapshot = await transaction.get(reference);
+      if (!snapshot.exists) return;
+      final current = (snapshot.data()?['currentKm'] as num?)?.toInt();
+      if (current == null || kilometer > current) {
+        transaction.update(reference, {
+          'currentKm': kilometer,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    });
   }
 
   Future<void> recalculateVehicleCurrentKm({

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/utils/formatters.dart';
 import '../../models/expense.dart';
 import 'edit_expense_screen.dart';
 
@@ -7,8 +8,7 @@ class ExpenseDetailScreen extends StatelessWidget {
   const ExpenseDetailScreen({super.key, required this.expense});
   final Expense expense;
 
-  String _date(DateTime value) =>
-      '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
+  String _date(DateTime value) => Formatters.date(value);
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +51,7 @@ class ExpenseDetailScreen extends StatelessWidget {
           _row(
             Icons.payments_outlined,
             'Toplam Tutar',
-            '₺${expense.amount.toStringAsFixed(2)}',
+            Formatters.currency(expense.amount),
           ),
           if (expense.serviceName?.isNotEmpty == true)
             _row(Icons.store_outlined, 'Servis / Usta', expense.serviceName!),
@@ -59,7 +59,7 @@ class ExpenseDetailScreen extends StatelessWidget {
             _row(
               Icons.handyman_outlined,
               'İşçilik',
-              '₺${expense.laborCost!.toStringAsFixed(2)}',
+              Formatters.currency(expense.laborCost),
             ),
           if (expense.type == ExpenseType.maintenance) ...[
             const SizedBox(height: 20),

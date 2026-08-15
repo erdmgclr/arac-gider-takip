@@ -42,9 +42,8 @@ Flutter ile geliştirilmiş araç gider, bakım ve yakıt yönetim uygulaması.
 - Flutter
 - Firebase Authentication
 - Cloud Firestore
-- Firebase Storage
-- Google Drive API
-- Provider
+- Google Drive API (yedekleme ve belge saklama için `appDataFolder`)
+- Google ML Kit (fiş OCR)
 
 ## Durum
 
