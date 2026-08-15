@@ -1,4 +1,6 @@
-# Miscellaneous
+# =========================
+# OS / Misc
+# =========================
 *.class
 *.log
 *.pyc
@@ -12,40 +14,88 @@
 .swiftpm/
 migrate_working_dir/
 
-# IntelliJ related
+# =========================
+# IntelliJ / Android Studio
+# =========================
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
+# =========================
+# VS Code
+# =========================
 #.vscode/
+.vscode/settings.json
 
-# Flutter/Dart/Pub related
+# =========================
+# Flutter / Dart / Pub
+# =========================
 **/doc/api/
 **/ios/Flutter/.last_build_id
+
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
-.pub-cache/
+
 .pub/
-/build/
-/coverage/
+.pub-cache/
 
-# Symbolication related
-app.*.symbols
+build/
+coverage/
 
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
+# Android Studio build outputs
 /android/app/debug
 /android/app/profile
 /android/app/release
 
+# =========================
+# Symbolication
+# =========================
+app.*.symbols
 
+# =========================
+# Obfuscation
+# =========================
+app.*.map.json
+
+# =========================
+# Environment Files
+# =========================
+.env
+.env.*
+*.env
+
+# =========================
+# Firebase
+# =========================
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# FlutterFire generated config
+lib/firebase_options.dart
+
+# Firebase Admin / Service Accounts
+serviceAccountKey.json
+service-account.json
+firebase-service-account.json
+firebase-adminsdk*.json
+
+# =========================
+# Android Signing
+# =========================
 android/key.properties
 *.jks
 *.keystore
 
+# =========================
+# Temporary Files
+# =========================
+*.tmp
+*.temp
+Thumbs.db
+
+# =========================
+# Claude / AI Notes (Opsiyonel)
+# =========================
+CLAUDE.local.md
